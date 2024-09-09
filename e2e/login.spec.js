@@ -5,10 +5,6 @@ expect: テストの結果が期待通りであるかどうかを検証するた
 import { test, expect } from '@playwright/test';
 // import LoginForm from '../LoginForm';
 
-test.use({
-  baseURL: 'http://localhost:5173',
-});
-
 //test.describe は、関連するテストケースをグループ化するための関数。ここでは「ログイン画面のテスト」という名前のスイートを定義
 
 /* 

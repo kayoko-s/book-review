@@ -2,10 +2,10 @@ import { useForm } from "react-hook-form";
 import * as Yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import axios from "axios";
-import { useState } from "react";
-import Cookie from "js-cookie";
+import Cookies from "js-cookie";
+import { useNavigate } from "react-router-dom";
 
-// バリデーションスキーマの定義
+// バリデーションスキーマ
 const schema = Yup.object().shape({
   email: Yup.string()
     .email("無効なメールアドレスです")
@@ -15,41 +15,28 @@ const schema = Yup.object().shape({
     .required("パスワードは必須です"),
 });
 
-// ログイン処理関数
+// ユーザーをログインさせる関数
 const loginUser = async (email, password) => {
-  try {
-    const response = await axios.post(
-      "https://railway.bookreview.techtrain.dev/signin",
-      { email, password }
-    );
-    return response.data.token; // トークンを返す
-  } catch (error) {
-    console.error("Login error", error.response?.data || error.message);
-    throw error;
-  }
+  const responseLogin = await axios.post(
+    "https://railway.bookreview.techtrain.dev/signin",
+    { email, password }
+  );
+  console.log("Login Response:", responseLogin.data); // デバッグ用
+  const token = responseLogin.data.token;
+
+  const response = await axios.get(
+    "https://railway.bookreview.techtrain.dev/users",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return { token, userName: response.data.name };
 };
 
-// ユーザー情報取得処理関数
-const getUserInfo = async (token) => {
-  try {
-    const response = await axios.get(
-      "https://railway.bookreview.techtrain.dev/users",
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Get user info error:",
-      error.response?.data || error.message
-    );
-    throw error;
-  }
-};
-
+// ログインコンポーネント
 const Login = () => {
   const {
     register,
@@ -59,21 +46,17 @@ const Login = () => {
     resolver: yupResolver(schema),
   });
 
-  const [userInfo, setUserInfo] = useState(null);
+  const navigate = useNavigate();
 
-  // フォーム送信ハンドラー
+  // フォーム送信時の処理
   const onSubmit = async (data) => {
     try {
-      // ユーザー認証
-      const token = await loginUser(data.email, data.password);
-      Cookie.set("token", token);
+      const { token, userName } = await loginUser(data.email, data.password);
+      Cookies.set("token", token);
+      Cookies.set("userName", userName); // ここで userName を保存
 
-      // ユーザー情報取得
-      const user = await getUserInfo(token);
-      setUserInfo(user);
-
-      // ログイン成功メッセージ
       alert("ログインに成功しました");
+      navigate("/book-reviews");
     } catch (error) {
       console.error("Login error", error.message);
       alert("ログインに失敗しました");
@@ -117,16 +100,6 @@ const Login = () => {
           新規登録画面へ
         </a>
       </form>
-      {userInfo && (
-        <div>
-          <a className="hover:text-blue-700 a ml-2" href="/book-reviews">
-            書籍一覧表へ
-          </a>
-          <h2>ユーザー情報</h2>
-          <p>名前： {userInfo.name}</p>
-          <img src={userInfo.iconUrl} alt="User Icon" />
-        </div>
-      )}
     </div>
   );
 };

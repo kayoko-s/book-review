@@ -3,6 +3,8 @@ import * as Yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Compressor from "compressorjs";
 import axios from "axios";
+import Cookies from "js-cookie";
+import { useNavigate } from "react-router-dom";
 
 // バリデーションスキーマの定義
 const schema = Yup.object().shape({
@@ -18,23 +20,16 @@ const schema = Yup.object().shape({
 
 // ユーザー作成関数
 const createUser = async (name, email, password) => {
-  try {
-    const response = await axios.post(
-      "https://railway.bookreview.techtrain.dev/users",
-      {
-        name,
-        email,
-        password,
-      }
-    );
-    return response.data.token;
-  } catch (error) {
-    console.error(
-      "Error during creation:",
-      error.response?.data || error.message
-    );
-    throw error;
-  }
+  const response = await axios.post(
+    "https://railway.bookreview.techtrain.dev/users",
+    {
+      name,
+      email,
+      password,
+    }
+  );
+  console.log("Create User Response:", response.data); // デバッグ用
+  return response.data; // token と idを含むデータを返す
 };
 
 // アイコン画像のアップロード
@@ -42,22 +37,17 @@ const uploadIcon = async (file, token) => {
   const formData = new FormData();
   formData.append("icon", file);
 
-  try {
-    const response = await axios.post(
-      "https://railway.bookreview.techtrain.dev/uploads",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    return response.data.iconUrl; // アップロードされたアイコンのURLを返す
-  } catch (error) {
-    console.error("Icon upload error:", error.response?.data || error.message);
-    throw error;
-  }
+  const response = await axios.post(
+    "https://railway.bookreview.techtrain.dev/uploads",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return response.data.iconUrl; // アップロードされたアイコンのURLを返す
 };
 
 const Signup = () => {
@@ -70,11 +60,19 @@ const Signup = () => {
     resolver: yupResolver(schema),
   });
 
+  const navigate = useNavigate();
+
   // フォーム送信ハンドラー
   const onSubmit = async (data) => {
     try {
       // ユーザー作成
-      const token = await createUser(data.name, data.email, data.password);
+      const { token, userName } = await createUser(
+        data.name,
+        data.email,
+        data.password
+      );
+      Cookies.set("token", token);
+      Cookies.set("userName", userName);
 
       if (data.icon instanceof File) {
         // 画像をリサイズ
@@ -88,6 +86,7 @@ const Signup = () => {
 
               // ユーザー作成とアイコンアップロードが成功したら通知
               alert("ユーザー登録が成功しました");
+              navigate("/book-reviews"); // 登録後に書籍レビュー一覧画面にリダイレクト
             } catch (error) {
               console.error("Icon upload error:", error.message);
               alert("アイコンのアップロードに失敗しました");
@@ -99,7 +98,6 @@ const Signup = () => {
           },
         });
       } else {
-        console.error("Expected a File object but got:", data.icon);
         alert("アイコンの選択に問題があります");
       }
     } catch (error) {

@@ -20,4 +20,5 @@ const bookReviewsSlice = createSlice({
   },
 });
 
-export default bookReviewsSlice;
+export default bookReviewsSlice.reducer; // 変更: スライスのリデューサーのみをエクスポート
+export const { setReviews, setOffset, setLoading } = bookReviewsSlice.actions; // 変更: actionsを個別にエクスポート

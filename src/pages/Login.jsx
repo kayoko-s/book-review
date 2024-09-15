@@ -17,23 +17,31 @@ const schema = Yup.object().shape({
 
 // ユーザーをログインさせる関数
 const loginUser = async (email, password) => {
-  const responseLogin = await axios.post(
-    "https://railway.bookreview.techtrain.dev/signin",
-    { email, password }
-  );
-  console.log("Login Response:", responseLogin.data); // デバッグ用
-  const token = responseLogin.data.token;
+  try {
+    const responseLogin = await axios.post(
+      "https://railway.bookreview.techtrain.dev/signin",
+      { email, password }
+    );
+    console.log("Login Response:", responseLogin.data); // デバッグ用
+    const token = responseLogin.data.token;
 
-  const response = await axios.get(
-    "https://railway.bookreview.techtrain.dev/users",
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+    const response = await axios.get(
+      "https://railway.bookreview.techtrain.dev/users",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-  return { token, userName: response.data.name };
+    return { token, userName: response.data.name };
+  } catch (error) {
+    console.error(
+      "Error during login or fetching user data",
+      error.response ? error.response.data : error.message
+    );
+    throw error; // エラーを再スローして呼び出し元で処理
+  }
 };
 
 // ログインコンポーネント
@@ -51,15 +59,20 @@ const Login = () => {
   // フォーム送信時の処理
   const onSubmit = async (data) => {
     try {
-      const { token, userName } = await loginUser(data.email, data.password);
+      const { token } = await loginUser(data.email, data.password);
       Cookies.set("token", token);
-      Cookies.set("userName", userName); // ここで userName を保存
 
       alert("ログインに成功しました");
       navigate("/book-reviews");
     } catch (error) {
-      console.error("Login error", error.message);
-      alert("ログインに失敗しました");
+      console.error(
+        "Login error",
+        error.resonse ? error.response.data : error.message
+      );
+      alert(
+        "ログインに失敗しました" +
+          (error.response ? error.response.data : error.message)
+      );
     }
   };
 
@@ -71,7 +84,7 @@ const Login = () => {
           <label htmlFor="email">メールアドレス：</label>
           <input
             id="email"
-            className="m-1 outline outline-gray-300 rounded"
+            className="m-1 outline outline-gray-300 rounded px-2"
             type="email"
             {...register("email")}
             autoComplete="email"
@@ -82,7 +95,7 @@ const Login = () => {
           <label htmlFor="password">パスワード：</label>
           <input
             id="password"
-            className="m-1 outline outline-gray-300 rounded"
+            className="m-1 outline outline-gray-300 rounded px-2"
             type="password"
             {...register("password")}
             autoComplete="current-password"

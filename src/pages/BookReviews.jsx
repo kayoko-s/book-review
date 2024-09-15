@@ -2,53 +2,57 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
 import { setReviews, setLoading } from "../store/bookReviewsSlice";
-import ReviewItem from "../components/ReviewItem";
 import Cookies from "js-cookie";
 import { useNavigate } from "react-router-dom";
+import { logout } from "../utils/logout";
+import ReviewItem from "../components/ReviewItem";
 
 const BookReviews = () => {
-  const reviews = useSelector((state) => state.bookReviews.reviews); // 修正: state.bookReviewsからレビューを取得
-  const loading = useSelector((state) => state.bookReviews.loading); // 修正: state.bookReviewsからローディング状態を取得
+  const reviews = useSelector((state) => state.bookReviews.reviews);
+  const loading = useSelector((state) => state.bookReviews.loading);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [offset, setOffset] = useState(0);
+  const [userName, setUserName] = useState(null);
+
+  const token = Cookies.get("token");
 
   useEffect(() => {
     const fetchReviews = async () => {
-      dispatch(setLoading(true)); // 修正: ローディング状態を設定
+      dispatch(setLoading(true));
       try {
-        const token = Cookies.get("token");
         if (!token) {
           navigate("/login");
           return;
         }
 
-        const response = await axios.get(
-          `https://railway.bookreview.techtrain.dev/books?offset=${offset}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+        const userResponse = await axios.get(
+          `https://railway.bookreview.techtrain.dev/users`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        dispatch(setReviews(response.data));
+        setUserName(userResponse.data.name);
+
+        const reviewsResponse = await axios.get(
+          `https://railway.bookreview.techtrain.dev/books?offset=${offset}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        dispatch(setReviews(reviewsResponse.data));
       } catch (error) {
         if (error.response && error.response.status === 401) {
-          // トークンが期限切れの場合の処理
           console.error("Token is expired. Redirecting to login.");
-          Cookies.remove("token"); // トークンを削除
-          Cookies.remove("userName"); // ユーザー名も削除
-          navigate("/login"); // ログイン画面にリダイレクト
+          Cookies.remove("token");
+          setUserName(null);
+          navigate("/login");
         } else {
           console.error("Error fetching book reviews", error.message);
         }
       } finally {
-        dispatch(setLoading(false)); // 修正: ローディング状態を解除
+        dispatch(setLoading(false));
       }
     };
 
     fetchReviews();
-  }, [offset, dispatch, navigate]);
+  }, [offset, token]);
 
   const handleNext = () => {
     setOffset(offset + 10);
@@ -60,7 +64,15 @@ const BookReviews = () => {
     }
   };
 
-  const userName = Cookies.get("userName") || "ゲスト"; // ここでユーザー名を取得し表示する
+  const handleLogout = () => {
+    logout();
+    setUserName(null);
+    navigate("/login");
+  };
+
+  const handleDelete = (id) => {
+    dispatch(setReviews(reviews.filter((review) => review.id !== id)));
+  };
 
   if (loading) {
     return <div>Loading...</div>;
@@ -69,13 +81,39 @@ const BookReviews = () => {
   return (
     <div className="leading-6 bg-slate-100 font-normal p-4">
       <header className="mb-6">
-        <h1 className="h1 leading-6 mb-6">書籍レビュー一覧</h1>
+        <h1 className="text-2xl font-bold mb-6">書籍レビュー一覧</h1>
         <div>
-          {userName !== "ゲスト" ? (
-            <span>こんにちは、{userName}さん</span>
+          {token ? (
+            <>
+              {userName ? (
+                <>
+                  <span>こんにちは、{userName}さん</span>
+                  <a
+                    className="btn bg-blue-500 text-zinc-500 py-2 px-4 rounded m-2"
+                    href="/profile"
+                  >
+                    ユーザー情報編集
+                  </a>
+                  <button
+                    onClick={handleLogout}
+                    className="btn bg-red-500 text-zinc-500 py-2 px-4 rounded m-2"
+                  >
+                    ログアウト
+                  </button>
+                  <a
+                    className="btn bg-blue-500 text-zinc-500 py-2 px-4 rounded m-2"
+                    href="/book-reviews/new"
+                  >
+                    新しいレビューを登録
+                  </a>
+                </>
+              ) : (
+                <div>Loading user info...</div>
+              )}
+            </>
           ) : (
             <a
-              className="btn bg-blue-500 text-white py-2 px-4 rounded"
+              className="btn bg-blue-500 text-zinc-500 py-2 px-4 rounded m-2"
               href="/login"
             >
               ログイン
@@ -83,10 +121,15 @@ const BookReviews = () => {
           )}
         </div>
       </header>
-      <ul className="font-normal list-none p-0">
+      <ul className="list-none p-0">
         {Array.isArray(reviews) &&
           reviews.map((review) => (
-            <ReviewItem key={review.id} review={review} />
+            <ReviewItem
+              key={review.id}
+              review={review}
+              isCurrentUser={token && review.reviewer === userName}
+              onDelete={handleDelete}
+            />
           ))}
       </ul>
       <div className="flex justify-between mt-4">

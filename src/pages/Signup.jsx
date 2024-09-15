@@ -66,13 +66,9 @@ const Signup = () => {
   const onSubmit = async (data) => {
     try {
       // ユーザー作成
-      const { token, userName } = await createUser(
-        data.name,
-        data.email,
-        data.password
-      );
+      const { token } = await createUser(data.name, data.email, data.password);
       Cookies.set("token", token);
-      Cookies.set("userName", userName);
+      // Cookies.set("userName", userName);
 
       if (data.icon instanceof File) {
         // 画像をリサイズ
